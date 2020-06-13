@@ -20,10 +20,14 @@ class AlgoliaPlacesClientTestCase(unittest.TestCase):
         self.assertEqual(self.client.app_id, 'xxx-app-id-xxx')
         self.assertEqual(self.client.api_key, 'xxx-api-key-xxx')
         self.assertIsInstance(self.client.session, requests.Session)
-        self.assertEqual(self.client.session.headers['X-Algolia-Application-Id'], 'xxx-app-id-xxx')
-        self.assertEqual(self.client.session.headers['X-Algolia-API-Key'], 'xxx-api-key-xxx')
-        self.assertEqual(self.client.session.headers['Content-Type'], 'application/json')
-        self.assertEqual(self.client.session.headers['Accept'], 'application/json')
+        self.assertEqual(
+            self.client.session.headers['X-Algolia-Application-Id'], 'xxx-app-id-xxx')
+        self.assertEqual(
+            self.client.session.headers['X-Algolia-API-Key'], 'xxx-api-key-xxx')
+        self.assertEqual(
+            self.client.session.headers['Content-Type'], 'application/json')
+        self.assertEqual(
+            self.client.session.headers['Accept'], 'application/json')
         self.assertEqual(self.client._defaults, {})
 
     def test_defaults(self):
@@ -88,3 +92,42 @@ class AlgoliaPlacesClientTestCase(unittest.TestCase):
         session_post.return_value.json.assert_called_with()
         self.assertIsInstance(resp, AlgoliaPlacesResponse)
         self.assertEqual(len(resp.hits), 2)
+
+    @patch.object(requests.Session, 'get')
+    def test_reverse(self, session_get):
+        session_get.return_value.json.return_value = {
+            'hits': [
+                {'objectID': 1337},
+                {'objectID': 1338},
+            ]
+        }
+
+        resp = self.client.reverse('40', '40')
+        session_get.assert_called_with(self.client.api_reverse_url, params={
+            'aroundLatLng': '40,40'
+        })
+        session_get.return_value.raise_for_status.assert_called_with()
+        session_get.return_value.json.assert_called_with()
+        self.assertIsInstance(resp, AlgoliaPlacesResponse)
+        self.assertEqual(len(resp.hits), 2)
+
+    @patch.object(requests.Session, 'get')
+    def test_reverse_with_default_unauthorized_key(self, session_get):
+        self.client.defaults(
+            countries=['fr', 'uk'], hitsPerPage="5", language="fr"
+        )
+
+        session_get.return_value.json.return_value = {
+            'hits': [
+                {'objectID': 1337},
+                {'objectID': 1338},
+            ]
+        }
+
+        resp = self.client.reverse('40', '40')
+
+        session_get.assert_called_with(self.client.api_reverse_url, params={
+            'aroundLatLng': '40,40',
+            'hitsPerPage': '5',
+            'language': 'fr'
+        })
